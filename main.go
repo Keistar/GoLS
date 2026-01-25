@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -32,11 +33,14 @@ var (
 type model struct {
 	cursor int           // 現在選択しているファイルのインデックス
 	files  []os.DirEntry // ファイル一覧
+	path   string        // Current path
 }
 
 func initalModel() model {
-	files, _ := os.ReadDir(".")
+	path, _ := os.Getwd()
+	files, _ := os.ReadDir(path)
 	return model{
+		path:  path,
 		files: files,
 	}
 }
@@ -59,6 +63,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.files)-1 {
 				m.cursor++
 			}
+		case "enter":
+			if len(m.files) == 0 {
+				return m, nil
+			}
+
+			selected := m.files[m.cursor]
+			if selected.IsDir() {
+				newPath := filepath.Join(m.path, selected.Name())
+				newFiles, err := os.ReadDir(newPath)
+				if err == nil {
+					m.path = newPath
+					m.files = newFiles
+					m.cursor = 0
+				}
+			}
 		}
 	}
 	return m, nil
@@ -75,10 +94,10 @@ func (m model) View() string {
 			rowStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4C94")).Bold(true)
 		}
 
-		icon := "F"
+		icon := "📄"
 		name := file.Name()
 		if file.IsDir() {
-			icon = "D"
+			icon = "📁"
 			if m.cursor != i {
 				name = dirStyle.Render(name)
 			} else {
