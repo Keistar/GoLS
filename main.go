@@ -39,6 +39,14 @@ type model struct {
 
 func initalModel() model {
 	path, _ := os.Getwd()
+	if len(os.Args) > 1 {
+		argPath := os.Args[1]
+		fmt.Println(argPath)
+		absPath, err := filepath.Abs(argPath)
+		if err == nil {
+			path = absPath
+		}
+	}
 	files, _ := os.ReadDir(path)
 	return model{
 		path:  path,
