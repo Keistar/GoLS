@@ -34,6 +34,7 @@ type model struct {
 	cursor int           // 現在選択しているファイルのインデックス
 	files  []os.DirEntry // ファイル一覧
 	path   string        // Current path
+	info   string
 }
 
 func initalModel() model {
@@ -63,7 +64,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.files)-1 {
 				m.cursor++
 			}
-		case "enter":
+		case "enter", "right", "l":
 			if len(m.files) == 0 {
 				return m, nil
 			}
@@ -78,13 +79,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor = 0
 				}
 			}
+		case "backspace", "left", "h":
+			parentPath := filepath.Dir(m.path)
+
+			if parentPath == m.path {
+				return m, nil
+			}
+
+			newFiles, err := os.ReadDir(parentPath)
+			if err == nil {
+				m.path = parentPath
+				m.files = newFiles
+				m.cursor = 0
+			}
+		}
+	}
+	if len(m.files) > 0 {
+		fileInfo, err := m.files[m.cursor].Info()
+		if err == nil {
+			size := fileInfo.Size()
+			modTime := fileInfo.ModTime().Format("2006-01-02 15:04")
+			m.info = fmt.Sprintf("Size: %d bytes | Mod: %s", size, modTime)
 		}
 	}
 	return m, nil
 }
 
 func (m model) View() string {
-	s := titleStyle.Render(" Golphin ") + " (q: Exit / Enter: Open)\n\n"
+	s := titleStyle.Render(" GoLS ") + " (q: Exit / Enter: Open / Backspace: Return)\n\n"
+	s += lipgloss.NewStyle().Foreground(lipgloss.Color("#777777")).Render(" 📍 "+m.path) + "\n\n"
 
 	for i, file := range m.files {
 		cursor := " "
@@ -110,6 +133,13 @@ func (m model) View() string {
 		s += fmt.Sprintf("%s %s %s\n", cursor, icon, name)
 	}
 	s += fmt.Sprintf("\n %d items in there.", len(m.files))
+	infoBar := lipgloss.NewStyle().
+		Background(lipgloss.Color("#353535")).
+		Foreground(lipgloss.Color("#AAAAAA")).
+		Width(50). // 表示幅を固定
+		Padding(0, 1)
+
+	s += "\n" + infoBar.Render(m.info)
 	return s
 }
 
